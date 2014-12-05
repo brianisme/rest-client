@@ -2,10 +2,17 @@ PATH
   remote: .
   specs:
     rest-client (0.0.1)
+      faraday (~> 0.8)
+      faraday-http-cache
 
 GEM
   remote: https://rubygems.org/
   specs:
+    faraday (0.9.0)
+      multipart-post (>= 1.2, < 3)
+    faraday-http-cache (0.4.2)
+      faraday (~> 0.8)
+    multipart-post (2.0.0)
     rake (10.4.1)
 
 PLATFORMS
