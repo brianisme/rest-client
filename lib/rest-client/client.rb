@@ -1,28 +1,30 @@
 require 'faraday'
 require 'faraday-http-cache'
+require 'active_support/cache'
 
 module RestClient
   class Client
 
     attr_reader :client
 
-    def initialize(*args)
-      @client = Faraday.new('http://www.google.com') do |stack|
-        stack.use RestClient::Middleware, limit: 50, period: 60
-        stack.use :http_cache
+    def initialize(host, limit = nil, period = nil, id = nil)
+      @client = Faraday.new(host) do |stack|
+        stack.use RestClient::Middleware, host: host, limit: limit, period: period, store: store
+        stack.use :http_cache, store: store
         stack.adapter Faraday.default_adapter
       end
     end
 
-    # %i(get post put delete).each do |method|
-    #   define_method method do |path, option={}|
-    #     # if not throttled
-    #       @client.send(method, path, option)
-    #       # dequene
-    #     # throttle
-    #     @storage
+    %i(get post put delete).each do |method|
+      define_method method do |path, option={}|
+        client.send(method, path, option)
+      end
+    end
 
-    #   end
-    # end
+    private
+
+    def store
+      @store ||= ActiveSupport::Cache::MemCacheStore.new('localhost:11211')
+    end
   end
 end
