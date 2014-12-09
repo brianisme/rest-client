@@ -16,7 +16,7 @@ module RestClient
         end
       end
 
-      it 'raises an exception' do
+      it 'gets throttled' do
         before_time = Time.now
         subject.add_request
         expect((Time.now - before_time).round).to be period
