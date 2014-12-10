@@ -2,7 +2,6 @@ require 'yaml'
 
 module RestClient
   class Throttle
-
     attr_reader :storage, :limit, :period, :key, :entry
 
     def initialize(key, options)
@@ -10,17 +9,32 @@ module RestClient
       @limit = options[:limit]
       @period = options[:period]
       @key = key
-      storage.write(key, YAML.dump(MaxQueue.new(limit))) unless storage.exist?(key)
     end
 
     def add_request
-      while exceeded?
-        puts "thorttled - sleep for #{debounce_after} seconds"
-        sleep debounce_after
+      p 'adding'
+      if storage.respond_to?(:cas?) && storage.cas?
+        result = storage.watch(key) do
+          storage.multi do |multi|
+            if exceeded?
+              puts "thorttled - sleep for #{debounce_after} seconds"
+              sleep debounce_after
+              next
+            end
+            entry << { time: Time.now }
+            storage.write(key, YAML.dump(entry))
+          end
+        end
+        p 3
+        add_request unless result.present? && result[0] == 'OK'
+      else
+        while exceeded?
+          puts "thorttled - sleep for #{debounce_after} seconds"
+          sleep debounce_after
+        end
+        entry << { time: Time.now }
+        storage.write(key, YAML.dump(entry))
       end
-      stored_entry = entry
-      stored_entry << { time: Time.now }
-      storage.write(key, YAML.dump(stored_entry))
     end
 
     def exceeded?
@@ -36,7 +50,7 @@ module RestClient
     end
 
     def entry
-      YAML.load(storage.read(key))
+      @entry ||= storage.read(key).present? ? YAML.load(storage.read(key)) : MaxQueue.new(limit)
     end
   end
 end

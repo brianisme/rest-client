@@ -27,7 +27,7 @@ module RestClient
     end
 
     def key
-      "#{@options[:host]}_#{@options[:id]}"
+      "#{@options[:host]}:#{@options[:id]}"
     end
   end
 end
