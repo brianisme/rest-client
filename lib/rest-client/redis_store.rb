@@ -4,7 +4,6 @@ module RestClient
   class RedisStore < Redis
     attr_reader :namespace
 
-    alias_method :orig_watch, :watch
     def initialize(options = {})
       super options
       @namespace = options[:namespace]
@@ -19,7 +18,11 @@ module RestClient
     end
 
     def watch(*keys, &block)
-      orig_watch(*namespaced_key(keys), &block)
+      super(*namespaced_key(keys), &block)
+    end
+
+    def exists(key)
+      super(namespaced_key(key))
     end
 
     def cas?
@@ -33,5 +36,8 @@ module RestClient
         "#{namespace}:#{key}"
       end
     end
+
+    alias_method :delete, :del
+    alias_method :exist?, :exists
   end
 end

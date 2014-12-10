@@ -10,7 +10,7 @@ module RestClient
     let(:id) { 'api_key' }
 
     it 'creates the key using host and id' do
-      expect(subject.send(:key)).to eq "#{host}_#{id}"
+      expect(subject.send(:key)).to eq "#{host}:#{id}"
     end
 
     it 'throttles' do

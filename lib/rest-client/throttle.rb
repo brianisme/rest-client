@@ -2,7 +2,7 @@ require 'yaml'
 
 module RestClient
   class Throttle
-    attr_reader :storage, :limit, :period, :key, :entry
+    attr_reader :storage, :limit, :period, :key, :entry, :debounce_after
 
     def initialize(key, options)
       @storage = options[:store]
@@ -12,9 +12,12 @@ module RestClient
     end
 
     def add_request
-      p 'adding'
+      @entry = nil
+      @debounce_after = nil
       if storage.respond_to?(:cas?) && storage.cas?
         result = storage.watch(key) do
+          # need to get the entry before getting into pipeline
+          @entry = entry
           storage.multi do |multi|
             if exceeded?
               puts "thorttled - sleep for #{debounce_after} seconds"
@@ -25,12 +28,18 @@ module RestClient
             storage.write(key, YAML.dump(entry))
           end
         end
-        p 3
-        add_request unless result.present? && result[0] == 'OK'
+
+        # result would be nil if cas is locked
+        # it would be [] if the request is throttled
+        unless result.kind_of?(Array) && result[0] == 'OK'
+          puts "retrying - result: #{result}"
+          add_request
+        end
       else
-        while exceeded?
+        if exceeded?
           puts "thorttled - sleep for #{debounce_after} seconds"
           sleep debounce_after
+          add_request
         end
         entry << { time: Time.now }
         storage.write(key, YAML.dump(entry))
@@ -44,13 +53,12 @@ module RestClient
 
     private
 
-    # TODO: some margin?
     def debounce_after
-      entry.first[:time] + period - Time.now
+      @debounce_after ||= entry.first[:time] + period - Time.now
     end
 
     def entry
-      @entry ||= storage.read(key).present? ? YAML.load(storage.read(key)) : MaxQueue.new(limit)
+      @entry ||= storage.exist?(key) ? YAML.load(storage.read(key)) : MaxQueue.new(limit)
     end
   end
 end
